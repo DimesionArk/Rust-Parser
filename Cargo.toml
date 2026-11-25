@@ -1,4 +1,56 @@
 [package]
-name = "Parser"
-version = "0.1.0"
+name = "parser"
+version = "0.0.0"
 edition = "2024"
+repository = "https://github.com/DimesionArk/Rust-Parser/"
+
+[profile.release]
+opt-level = 3
+strip = true
+lto = "fat"
+incremental = false
+codegen-units = 1
+
+[lints.clippy]
+pedantic = "warn"
+nursery = "warn"
+suspicious = "warn"
+as_conversions = "warn"
+min_ident_chars = "warn"
+pattern_type_mismatch = "warn"
+use_self = "warn"
+unused_trait_names = "warn"
+create_dir = "warn"
+exit = "warn"
+float_cmp = "warn"
+float_fmp_const = "warn"
+while_float = "warn"
+integer_division = "warn"
+integer_division_remainder_used = "warn"
+unreadable_literal = "warn"
+unnecessary_literal_bound = "warn"
+missing_const_for_fn = "warn"
+needless_collect = "warn"
+needless_for_each = "warn"
+as_underscore = "warn"
+branches_sharing_code = "warn"
+infinite_loop = "warn"
+linkedlist = "warn"
+pub_use = "warn"
+wildcard_imports = "warn"
+uninlined_format_args = "warn"
+equatable_if_let = "warn"
+enum_glob_use = "warn"
+panic = "warn"
+panic_in_result_fn = "warn"
+undocumented_unsafe_blocks = "forbid"
+multiple_unsafe_ops_per_block = "forbid"
+missing_safety_doc = "forbid"
+tabs_in_doc_comments = "allow"
+unnecessary_semicolon = "allow"
+default_trait_access = "allow"
+upper_case_acronyms = "allow"
+borrowed_box = "allow"
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "forbid"

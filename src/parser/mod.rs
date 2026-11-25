@@ -1,12 +1,12 @@
+use expr::Expr::{self, *};
+
 pub mod expr;
 pub mod function;
 
-use expr::Expr::{self, *};
-use crate::parser::ParserError::*;
-
 use std::{
 	char,
-	error::Error, fmt::{Display, Formatter, Result as FmtResult},
+	error::Error,
+	fmt::{Display, Formatter, Result as FmtResult},
 	str::Chars,
 };
 
@@ -28,7 +28,9 @@ impl Display for ParserError {
 		match self {
 			Self::ExpectedMoreChars => write!(fmt, "More Characters Expected!"),
 			Self::UnexpectedChar(character) => write!(fmt, "Unexpected Character: {character:?}"),
-			Self::UnexpectedIdentifier(identifier) => write!(fmt, "Unexpected Identifier: {identifier:?}"),
+			Self::UnexpectedIdentifier(identifier) => {
+				write!(fmt, "Unexpected Identifier: {identifier:?}")
+			},
 			Self::UnmatchedBracket => write!(fmt, "Unmatched Bracket!"),
 			Self::MultipleDecimalPLaces => write!(fmt, "Multiple Decimal Places For One Number!"),
 			Self::LogBaseUndecleared => write!(fmt, "Log Base Undecleared!"),
@@ -44,20 +46,11 @@ struct Source<'a> {
 
 impl<'a> From<&'a str> for Source<'a> {
 	fn from(value: &'a str) -> Self {
-		Source {
+		Self {
 			input: value.chars(),
 			peeked: None,
 		}
 	}
-}
-impl <'a> From<&'a String> for Source<'a> {
-	fn from(value: &'a String) -> Self {
-		Source { 
-			input: value.chars(),
-			peeked: None,
-		}
-	}
-	
 }
 
 impl Iterator for Source<'_> {
@@ -66,38 +59,39 @@ impl Iterator for Source<'_> {
 	#[inline]
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.peeked {
-			None => {
-				loop {
-					let next: char = self.input.next()?;
-					if next.is_whitespace() {
-						continue;
-					};
-					return Some(next)
-				}
+			None => loop {
+				let next: char = self.input.next()?;
+				if next.is_whitespace() {
+					continue;
+				};
+				return Some(next);
 			},
 			_ => self.peeked.take(),
 		}
 	}
 }
-	
+
 impl Source<'_> {
-    #[inline]
-    pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
-        if let None = self.peeked {
-            self.peeked = self.next();
-        };
-        self.peeked.as_ref()
-    }
+	#[inline]
+	#[must_use]
+	pub fn peek(&mut self) -> Option<&<Self as Iterator>::Item> {
+		if let None = self.peeked {
+			self.peeked = self.next();
+		};
+		self.peeked.as_ref()
+	}
 }
 
 #[derive(Debug)]
 pub struct Parser<'a> {
-    source: Source<'a>
+	source: Source<'a>,
 }
 
 impl<'a> Parser<'a> {
 	pub fn new(source: &'a str) -> Self {
-		Parser { source: Source::from(source) }
+		Self {
+			source: Source::from(source),
+		}
 	}
 
 	pub fn parse_expr(&mut self) -> Result<Expr, ParserError> {
@@ -108,12 +102,11 @@ impl<'a> Parser<'a> {
 		let mut result: Expr = self.parse_factor_expr()?;
 		let mut next: char;
 
-		'outer: loop {
-			let peeked = self.source.peek();
-			match peeked {
-				None => break 'outer,
-				Some(value) => next = *value
-			}
+		loop {
+			match self.source.peek() {
+				None => break,
+				Some(value) => next = *value,
+			};
 
 			match next {
 				'+' => {
@@ -124,8 +117,8 @@ impl<'a> Parser<'a> {
 					self.source.next();
 					result = Sub(Box::new(result), Box::new(self.parse_factor_expr()?));
 				},
-				_ => break 'outer
-			}
+				_ => break,
+			};
 		}
 		Ok(result)
 	}
@@ -134,12 +127,11 @@ impl<'a> Parser<'a> {
 		let mut result: Expr = self.parse_unary_expr()?;
 		let mut next: char;
 
-		'outer: loop {
-			let peeked: Option<&char> = self.source.peek();
-			match peeked {
-				None => break 'outer,
-				Some(value) => next = *value
-			}
+		loop {
+			match self.source.peek() {
+				None => break,
+				Some(value) => next = *value,
+			};
 
 			match next {
 				'*' => {
@@ -150,17 +142,17 @@ impl<'a> Parser<'a> {
 					self.source.next();
 					result = Div(Box::new(result), Box::new(self.parse_unary_expr()?));
 				},
-				_ => break 'outer
-			}
+				_ => break,
+			};
 		}
 		Ok(result)
 	}
 
 	fn parse_unary_expr(&mut self) -> Result<Expr, ParserError> {
-		if self.source.peek().filter(|c: &&char| **c == '-').is_some() {
+		if let Some('-') = self.source.peek() {
 			self.source.next();
-			return Ok(Unary(Box::new(self.parse_exponent_expr()?)))
-		}
+			return Ok(Unary(Box::new(self.parse_exponent_expr()?)));
+		};
 		self.parse_exponent_expr()
 	}
 
@@ -168,122 +160,111 @@ impl<'a> Parser<'a> {
 		let mut result: Expr = self.parse_function_expr()?;
 		let mut next: char;
 
-		'outer: loop {
-			let peeked: Option<&char> = self.source.peek();
-			match peeked {
-				None => break 'outer,
-				Some(value) => next = *value
-			}
-
+		loop {
+			match self.source.peek() {
+				None => break,
+				Some(value) => next = *value,
+			};
 			match next {
 				'^' => {
 					self.source.next();
 					result = Exponent(Box::new(result), Box::new(self.parse_function_expr()?));
 				},
-				_ => break 'outer
-			}
+				_ => break,
+			};
 		}
 		Ok(result)
 	}
 
 	fn parse_function_expr(&mut self) -> Result<Expr, ParserError> {
-		let peeked: Option<&char> = self.source.peek();
 		let next: char;
-		match peeked {
-			None => return Err(ExpectedMoreChars),
-			Some(value) => next = *value
-		}
+		match self.source.peek() {
+			None => return Err(ParserError::ExpectedMoreChars),
+			Some(value) => next = *value,
+		};
 
 		if !next.is_alphabetic() {
-			return Ok(self.parse_primery_expr()?)
+			return Ok(self.parse_primery_expr()?);
 		} else {
-			self.source.next();
-		}
+			let _ = self.source.next();
+		};
 
 		if let Some('(') = self.source.peek() {
-			self.source.next();
+			let _ = self.source.next();
 			let mut parameters: Vec<Expr> = Vec::new();
-			'outer: loop {
+			loop {
 				parameters.push(self.parse_expr()?);
-				let read: char = self.source.next().unwrap();
-				match read {
+				match self.source.next().unwrap() {
 					',' => continue,
-					')' => break 'outer,
-					_ => return Err(UnexpectedChar(read)),
-				}
+					')' => break,
+					unexpected => return Err(ParserError::UnexpectedChar(unexpected)),
+				};
 			}
-			return Ok(FunctionCall { 
+			return Ok(FunctionCall {
 				name: next,
-				params: parameters
-			})
-
-		} else if let 'a'|'l' | 's' | 'c' | 't' | 'p' | 'e' = next {
+				params: parameters,
+			});
+		} else if let 'a' | 'l' | 's' | 'c' | 't' | 'p' | 'e' = next {
 			if next == 'e' {
-				return Ok(EulersNumber)
-			}
+				return Ok(EulersNumber);
+			};
 
 			let mut identifier: String = String::with_capacity(4);
 			identifier.push(next);
 			let peeked: Option<&char> = self.source.peek();
 			match peeked {
 				None => return Ok(VariableRef(next)),
-				Some(value) => {
-					match value {
-						'n'|'o'|'i'|'a' => {
-							identifier.push(*value);
-							self.source.next();
-						},
-						_ => return Ok(VariableRef(next))
-					}
+				Some(value) => match value {
+					'n' | 'o' | 'i' | 'a' => {
+						identifier.push(*value);
+						let _ = self.source.next();
+					},
+					_ => return Ok(VariableRef(next)),
 				},
-			}
+			};
 
-			let peeked: Option<&char> = self.source.peek();
 			match identifier.as_str() {
 				"pi" => return Ok(Pi),
 				"ln" => {
-					let next: char = *peeked.unwrap();
-					if next != '(' {
-						return Err(UnexpectedChar(next))
-					}
-					self.source.next();
-					
+					let Some('('): Option<char> = self.source.next() else {
+						return Err(ParserError::UnexpectedChar(next));
+					};
+
 					let expr: Expr = self.parse_expr()?;
-					if self.source.next() != Some(')') {
-						return Err(UnmatchedBracket)
-					}
-					return Ok(Log { base: Box::new(EulersNumber), value: Box::new(expr) })
+					let Some(')'): Option<char> = self.source.next() else {
+						return Err(ParserError::UnmatchedBracket);
+					};
+					return Ok(Log {
+						base: Box::new(EulersNumber),
+						value: Box::new(expr),
+					});
 				},
-				_ => {
-					identifier.push(*peeked.unwrap());
-					self.source.next();
-				}				
+				_ => identifier.push(self.source.next().unwrap()),
 			}
 
 			let next: char = self.source.next().unwrap();
-			let mut base: Result<Expr, ParserError> = Err(LogBaseUndecleared);
+			let mut base: Result<Expr, ParserError> = Err(ParserError::LogBaseUndecleared);
 			match next {
 				'_' => {
 					base = self.parse_expr();
-					self.source.next();
-					let next: Option<char> = self.source.next();
-					if next != Some('(') {
-						return Err(UnexpectedChar(next.unwrap()))
-					}
+					let _ = self.source.next();
+					let Some('('): Option<char> = self.source.next() else {
+						return Err(ParserError::UnexpectedChar(next));
+					};
 				},
 				'n' | 's' => {
 					identifier.push(next);
 					let next: char = self.source.next().unwrap();
 					if next != '(' {
-						return Err(UnexpectedChar(next))
-					}
-				}
-				_ => ()
-			}
+						return Err(ParserError::UnexpectedChar(next));
+					};
+				},
+				_ => (),
+			};
 
 			let expr: Expr = self.parse_expr()?;
 			let Some(')'): Option<char> = self.source.next() else {
-  				return Err(UnmatchedBracket);
+				return Err(ParserError::UnmatchedBracket);
 			};
 
 			match identifier.as_str() {
@@ -293,20 +274,24 @@ impl<'a> Parser<'a> {
 				"asin" => return Ok(Asine(Box::new(expr))),
 				"acos" => return Ok(Acosine(Box::new(expr))),
 				"atan" => return Ok(Atangent(Box::new(expr))),
-				"log" => return Ok(Log { base: Box::new(base?), value: Box::new(expr) }),
-				_ => return Err(UnexpectedIdentifier(identifier)),
-			}
-
+				"log" => {
+					return Ok(Log {
+						base: Box::new(base?),
+						value: Box::new(expr),
+					});
+				},
+				_ => return Err(ParserError::UnexpectedIdentifier(identifier)),
+			};
 
 			// let name: Option<&char> = self.source.peek();
 			// if name.is_none() && *name.unwrap() != 'i' && *name.unwrap() != 'o' && *name.unwrap() != 'a' {
 			// 	return Ok(self.parse_primery_expr()?)
 			// }
-			
+
 			// let name: char = *name.unwrap();
 			// self.source.next();
 			// let end: char = self.source.next().unwrap();
-			// let full: String = format!("{}{}{}", next, name, end);	
+			// let full: String = format!("{}{}{}", next, name, end);
 
 			// let mut character: char = self.source.next().unwrap();
 			// let base: Result<Expr, ParserError>;
@@ -319,7 +304,7 @@ impl<'a> Parser<'a> {
 			// if character != '(' {
 			// 	return Err(UnexpectedChar(character))
 			// }
-			// let expr: Expr = self.parse_expr()?;	
+			// let expr: Expr = self.parse_expr()?;
 
 			// character = self.source.next().unwrap();
 			// if character != ')' {
@@ -340,48 +325,50 @@ impl<'a> Parser<'a> {
 	}
 
 	fn parse_primery_expr(&mut self) -> Result<Expr, ParserError> {
-		let peeked: Option<&char> = self.source.peek();
-		if peeked.is_none() {
-			return Err(ExpectedMoreChars)
-		}
+		let Some(next) = self.source.peek() else {
+			return Err(ParserError::ExpectedMoreChars);
+		};
 
-		if *peeked.unwrap() == '(' {
-			self.source.next();
-			let expr: Result<Expr, ParserError> = self.parse_expr();
+		if *next == '(' {
+			let _ = self.source.next();
+			let expr: Expr = self.parse_expr()?;
 
-			if self.source.next().filter(|c| *c == ')').is_none() {
-				return Err(UnmatchedBracket)
-			}
-			return Ok(expr?)
-		} else if peeked.unwrap().is_numeric() {
+			let Some(')'): Option<char> = self.source.next() else {
+				return Err(ParserError::UnmatchedBracket);
+			};
+			Ok(expr)
+		} else if next.is_numeric() {
 			Ok(Literal(self.parse_number()?))
 		} else {
-			return Err(UnexpectedChar(*peeked.unwrap()))
+			Err(ParserError::UnexpectedChar(*next))
 		}
 	}
 
 	fn parse_number(&mut self) -> Result<f64, ParserError> {
-		let mut buf: String = "".to_string();
+		let mut buf: String = String::with_capacity(14);
 		let mut seen_dot: bool = false;
-		'outer: loop {
-			let peeked: Option<&char> = self.source.peek();
-			if peeked.is_none() {
-				break 'outer;
-			}
-			let next: char = *peeked.unwrap();
-			if next.is_numeric() {
-				self.source.next();
-			} else if next == '.' {
-				self.source.next();
-				if seen_dot {
-					return Err(MultipleDecimalPLaces)
-				}
-				seen_dot = true;
-			} else {
-				break 'outer;
-			}
+		loop {
+			let Some(next): Option<&char> = self.source.peek() else {
+				break;
+			};
+			// SANITY(unusual): Borrowing rules.
+			let next: char = *next;
+			match next {
+				'0'..'9' => {
+					let _ = self.source.next();
+				},
+				'.' => {
+					let _ = self.source.next();
+					if seen_dot {
+						return Err(ParserError::MultipleDecimalPLaces);
+					};
+					seen_dot = true;
+				},
+				_ => break,
+			};
 			buf.push(next);
 		}
+		// FIXME: Add an error enumeration for this.
 		Ok(buf.parse::<f64>().unwrap())
 	}
 }

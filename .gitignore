@@ -1,0 +1,17 @@
+# Rust
+**/target
+
+# OS-specific
+.DS_store
+Thumbs.db
+
+# Artefacts
+*.pch
+*.o
+*.elf
+*.bin
+*.so
+a.out
+
+# Misc
+**/.direnv/
